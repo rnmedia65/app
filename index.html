@@ -2,9 +2,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link rel="stylesheet" href="style.css">
-<script type="module" src="./config.js"></script>
+<script type="module" src="../config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
-
+<style>
+    input {
+        width : 100%;
+    }
+</style>
 <div class="container">
     <div class="top-bar">
         <div class="logo-section">
@@ -42,7 +46,7 @@
 </div>
 
 <script type="module">
-import { db } from "./config.js"
+import { db } from "../config.js"
 import { doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
 
 const userID = localStorage.getItem("rony_local")
@@ -143,7 +147,4 @@ document.getElementById("filterBtn").onclick = async () => {
 
 loadHeader()
 loadDefault()
-</script>
-<script>
-    if(!localStorage.getItem("rony_local")) location = "login.html"
 </script>
