@@ -1,0 +1,149 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="container">
+    <div class="top-bar">
+        <div class="logo-section">
+            <img id="logo" class="logo-img">
+            <span id="greet" class="welcome-text"></span>
+        </div>
+        <a href="withdraw.html">
+            <img src="https://www.svgrepo.com/show/31226/wallet.svg" alt="withdraw">
+        </a>
+    </div>
+
+    <div class="content">
+        <div class="filter-bar">
+            <input type="date" id="fromDate" class="date-input">
+            <input type="date" id="toDate" class="date-input">
+            <button id="filterBtn" class="filter-btn">Filter</button>
+        </div>
+
+        <div class="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>App Name</th>
+                        <th>Revenue</th>
+                        <th>Conversion</th>
+                        <th>Click</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody"></tbody>
+            </table>
+        </div>
+
+        <p id="noData" class="no-data" style="display:none;">No data found</p>
+    </div>
+</div>
+
+<script type="module">
+import { db } from "./config.js"
+import { doc, getDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+const userID = localStorage.getItem("rony_local")
+if(!userID) location = "login.html"
+
+const greet = document.getElementById("greet")
+const logo = document.getElementById("logo")
+const tableBody = document.getElementById("tableBody")
+const noData = document.getElementById("noData")
+const fromDate = document.getElementById("fromDate")
+const toDate = document.getElementById("toDate")
+
+const today = new Date()
+const yyyy = today.getFullYear()
+const mm = String(today.getMonth() + 1).padStart(2, "0")
+const dd = String(today.getDate()).padStart(2, "0")
+const todayStr = `${yyyy}-${mm}-${dd}`
+
+fromDate.max = todayStr
+toDate.max = todayStr
+
+function formatDate(ts){
+    const d = new Date(ts.seconds * 1000)
+    return d.toISOString().split("T")[0]
+}
+
+function getYesterday(){
+    const t = new Date()
+    t.setDate(t.getDate() - 1)
+    return t.toISOString().split("T")[0]
+}
+
+async function loadHeader(){
+    const snap = await getDoc(doc(db,"channel",userID))
+    const data = snap.data()
+    greet.innerText = data.name
+    logo.src = data.logo
+}
+
+logo.onclick = () => location = "profile.html"
+
+async function loadData(appMap){
+    tableBody.innerHTML = ""
+    noData.style.display = "none"
+
+    const snap = await getDocs(collection(db,"data"))
+    let found = false
+
+    snap.forEach(d=>{
+        const x = d.data()
+        if(x.channel_id !== userID) return
+        if(!x.timestamp) return
+
+        const tsDate = formatDate(x.timestamp)
+
+        if(fromDate.value && tsDate < fromDate.value) return
+        if(toDate.value && tsDate > toDate.value) return
+
+        found = true
+
+        const tr = document.createElement("tr")
+        tr.innerHTML = `
+        <td>${appMap[x.app_id] || ""}</td>
+        <td>${x.revenue}</td>
+        <td>${x.conversion}</td>
+        <td>${x.click}</td>
+        `
+        tableBody.appendChild(tr)
+    })
+
+    if(!found) noData.style.display = "block"
+}
+
+async function loadDefault(){
+    const yesterday = getYesterday()
+    fromDate.value = yesterday
+    toDate.value = yesterday
+
+    const apps = await getDocs(collection(db,"apps"))
+    const appMap = {}
+    apps.forEach(a => appMap[a.id] = a.data().title)
+
+    await loadData(appMap)
+}
+
+document.getElementById("filterBtn").onclick = async () => {
+    if(fromDate.value >= todayStr || toDate.value >= todayStr){
+        Swal.fire("No Data Found")
+        return
+    }
+
+    const apps = await getDocs(collection(db,"apps"))
+    const appMap = {}
+    apps.forEach(a => appMap[a.id] = a.data().title)
+
+    loadData(appMap)
+}
+
+loadHeader()
+loadDefault()
+</script>
+<script>
+    if(!localStorage.getItem("rony_local")) location = "login.html"
+</script>

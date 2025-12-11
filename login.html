@@ -1,0 +1,65 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<div class="container">
+    <div class="content" style="padding-top: 60px;">
+        <div style="text-align: center; margin-bottom: 40px;">
+            <svg width="80" height="80" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="12" cy="12" r="10" stroke="#000" stroke-width="2"/>
+                <path d="M12 6V12L16 14" stroke="#000" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <h1 style="font-size: 28px; margin-top: 20px;">Login</h1>
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">Username</label>
+            <input id="username" class="input-field" placeholder="Enter username">
+        </div>
+
+        <div class="input-group">
+            <label class="input-label">Password</label>
+            <input id="password" type="password" class="input-field" placeholder="Enter password">
+        </div>
+
+        <button id="loginBtn" class="btn-primary">Login</button>
+    </div>
+</div>
+
+<script type="module">
+import { db } from "./config.js"
+import { getDocs, collection } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+if(localStorage.getItem("rony_local")){
+    location = "index.html"
+}
+
+document.getElementById("loginBtn").onclick = async () => {
+    const u = document.getElementById("username").value
+    const p = document.getElementById("password").value
+
+    if(!u || !p){
+        Swal.fire("Fill all fields")
+        return
+    }
+
+    const snap = await getDocs(collection(db,"channel"))
+    let found = false
+
+    snap.forEach(d => {
+        const x = d.data()
+        if(x.username === u && x.password === p){
+            found = true
+            localStorage.setItem("rony_local", d.id)
+            location = "index.html"
+        }
+    })
+
+    if(!found){
+        Swal.fire("Invalid Login")
+    }
+}
+</script>

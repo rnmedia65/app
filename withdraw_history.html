@@ -1,0 +1,114 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+
+<style>
+.status-pending { color: #ff9800; font-weight: 600; }
+.status-accept { color: #4caf50; font-weight: 600; }
+.status-reject { color: #f44336; font-weight: 600; }
+</style>
+
+<div class="container">
+    <div class="header">
+        <button class="back-btn" onclick="location='withdraw.html'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <span class="header-title">Withdraw History</span>
+        <div style="width: 40px;"></div>
+    </div>
+
+    <div class="content">
+        <div id="cards" class="card-list"></div>
+        <p id="noData" class="no-data" style="display:none;">No withdrawal history found</p>
+    </div>
+</div>
+
+<script type="module">
+import { db } from "./config.js"
+import { collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+const userID = localStorage.getItem("rony_local")
+if(!userID) location = "login.html"
+
+const cards = document.getElementById("cards")
+const noData = document.getElementById("noData")
+
+function format(ts){
+    if(!ts) return ""
+    const d = new Date(ts.seconds * 1000)
+    return d.toLocaleString()
+}
+
+function getStatusClass(status){
+    if(status === "Pending") return "status-pending"
+    if(status === "Accept") return "status-accept"
+    if(status === "Reject") return "status-reject"
+    return "status-pending"
+}
+
+async function loadData(){
+    cards.innerHTML = ""
+    const snap = await getDocs(collection(db,"withdraw"))
+    let found = false
+
+    snap.forEach(d=>{
+        const x = d.data()
+        if(x.user_id !== userID) return
+
+        found = true
+
+        const c = document.createElement("div")
+        c.className = "history-card"
+
+        c.innerHTML = `
+        <div class="card-row">
+            <span class="card-label">Mode</span>
+            <span class="card-value">${x.mode.toUpperCase()}</span>
+        </div>
+        <div class="card-row">
+            <span class="card-label">Amount</span>
+            <span class="card-value">₹${x.amount}</span>
+        </div>
+        <div class="card-row">
+            <span class="card-label">Status</span>
+            <span class="card-value ${getStatusClass(x.status)}">${x.status}</span>
+        </div>
+        ${x.mode === "upi" ? `
+        <div class="card-row">
+            <span class="card-label">UPI</span>
+            <span class="card-value">${x.upi}</span>
+        </div>
+        ` : ""}
+        ${x.mode === "bank" ? `
+        <div class="card-row">
+            <span class="card-label">Bank</span>
+            <span class="card-value">${x.bankName}</span>
+        </div>
+        <div class="card-row">
+            <span class="card-label">Account</span>
+            <span class="card-value">${x.accNum}</span>
+        </div>
+        <div class="card-row">
+            <span class="card-label">IFSC</span>
+            <span class="card-value">${x.ifsc}</span>
+        </div>
+        ` : ""}
+        <div class="card-row">
+            <span class="card-label">Date</span>
+            <span class="card-value">${format(x.timestamp)}</span>
+        </div>
+        `
+        cards.appendChild(c)
+    })
+
+    if(!found){
+        noData.style.display = "block"
+    }
+}
+
+loadData()
+</script>

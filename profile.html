@@ -1,0 +1,141 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+<style>
+    #profileBox {
+        padding: 0 20px;
+    }
+</style>
+<div class="container">
+    <div class="header">
+        <svg class="header-icon" onclick="location='index.html'" style="cursor: pointer;" viewBox="0 0 24 24"
+            fill="none" stroke="#333" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
+        <h1 class="header-title">Profile</h1>
+        <button id="logoutBtn" class="logout-btn">Logout</button>
+    </div>
+
+    <div id="loader" class="loader"></div>
+
+    <div id="profileBox" style="display:none;">
+        <div class="profile-section">
+            <img id="pImage" class="profile-image">
+            <h2 id="pName" class="profile-name"></h2>
+            <p id="pUser" class="profile-info"></p>
+            <p id="pPass" class="profile-info"></p>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3 class="section-title">UPI Details</h3>
+        <div id="upiDiv" class="form-section" style="display:none;">
+            <div class="form-group">
+                <label class="form-label">UPI ID</label>
+                <input id="upi" class="form-input" placeholder="Enter UPI ID">
+            </div>
+            <button id="upiBtn" class="btn-primary">Submit</button>
+        </div>
+
+        <div class="divider"></div>
+
+        <h3 class="section-title">Bank Details</h3>
+        <div id="bankDiv" class="form-section" style="display:none;">
+            <div class="form-group">
+                <label class="form-label">Bank Name</label>
+                <input id="bankName" class="form-input" placeholder="Bank Name">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Account Number</label>
+                <input id="accNum" class="form-input" placeholder="Account Number">
+            </div>
+            <div class="form-group">
+                <label class="form-label">IFSC Code</label>
+                <input id="ifsc" class="form-input" placeholder="IFSC Code">
+            </div>
+            <button id="bankBtn" class="btn-primary">Submit</button>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    import { db } from "./config.js"
+    import { doc, getDoc, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+    const userID = localStorage.getItem("rony_local")
+    if (!userID) location = "login.html"
+
+    document.getElementById("logoutBtn").onclick = () => {
+        localStorage.removeItem("rony_local")
+        location = "login.html"
+    }
+
+    const loader = document.getElementById("loader")
+    const pImage = document.getElementById("pImage")
+    const pName = document.getElementById("pName")
+    const pUser = document.getElementById("pUser")
+    const pPass = document.getElementById("pPass")
+
+    const upi = document.getElementById("upi")
+    const upiBtn = document.getElementById("upiBtn")
+
+    const bankName = document.getElementById("bankName")
+    const accNum = document.getElementById("accNum")
+    const ifsc = document.getElementById("ifsc")
+    const bankBtn = document.getElementById("bankBtn")
+
+    const ref = doc(db, "channel", userID)
+
+    async function loadData() {
+        loader.style.display = "block"
+        const snap = await getDoc(ref)
+        loader.style.display = "none"
+
+        const data = snap.data() || {}
+
+        document.getElementById("profileBox").style.display = "block"
+        document.getElementById("upiDiv").style.display = "block"
+        document.getElementById("bankDiv").style.display = "block"
+
+        pImage.src = data.logo
+        pName.innerText = data.name
+        pUser.innerText = "Username: " + data.username
+        pPass.innerText = "Password: " + data.password
+
+        if (data.upi) {
+            upi.value = data.upi
+            upiBtn.textContent = "Update"
+        }
+
+        if (data.bankName) {
+            bankName.value = data.bankName
+            accNum.value = data.accNum
+            ifsc.value = data.ifsc
+            bankBtn.textContent = "Update"
+        }
+    }
+
+    upiBtn.onclick = async () => {
+        loader.style.display = "block"
+        await updateDoc(ref, { upi: upi.value })
+        loader.style.display = "none"
+        upiBtn.textContent = "Update"
+        Swal.fire("Saved")
+    }
+
+    bankBtn.onclick = async () => {
+        loader.style.display = "block"
+        await updateDoc(ref, {
+            bankName: bankName.value,
+            accNum: accNum.value,
+            ifsc: ifsc.value
+        })
+        loader.style.display = "none"
+        bankBtn.textContent = "Update"
+        Swal.fire("Saved")
+    }
+
+    loadData()
+</script>

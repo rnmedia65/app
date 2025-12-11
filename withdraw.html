@@ -1,0 +1,242 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+.note-box {
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin-bottom: 20px;
+}
+.note-title {
+    font-weight: 600;
+    color: #856404;
+    margin-bottom: 4px;
+    font-size: 14px;
+}
+.note-text {
+    color: #856404;
+    font-size: 13px;
+    line-height: 1.5;
+}
+</style>
+
+<div class="container">
+    <div class="header">
+        <button class="back-btn" onclick="location='profile.html'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M15 18L9 12L15 6" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </button>
+        <span class="header-title">Withdraw</span>
+        <div style="width: 40px;"></div>
+    </div>
+
+    <div class="content">
+        <div class="note-box">
+            <div class="note-title">Note:</div>
+            <div class="note-text">• Minimum withdrawal amount is ₹300<br>• Withdrawals are only available on Sunday and Monday</div>
+        </div>
+
+        <div id="balanceBox" class="balance-card"></div>
+
+        <div class="tab-container">
+            <button id="upiBtn" class="tab-btn active">UPI</button>
+            <button id="bankBtn" class="tab-btn">BANK</button>
+        </div>
+
+        <div id="upiDiv">
+            <div class="input-group">
+                <label class="input-label">UPI ID</label>
+                <input id="upiInput" class="input-field" disabled>
+            </div>
+            <div class="input-group">
+                <label class="input-label">Amount</label>
+                <input id="amountUpi" class="input-field" placeholder="Enter Amount" type="number">
+            </div>
+            <button id="withdrawUpi" class="btn-primary">Withdraw</button>
+        </div>
+
+        <div id="bankDiv" style="display:none;">
+            <div class="input-group">
+                <label class="input-label">Bank Name</label>
+                <input id="bankName" class="input-field" disabled>
+            </div>
+            <div class="input-group">
+                <label class="input-label">Account Number</label>
+                <input id="accNum" class="input-field" disabled>
+            </div>
+            <div class="input-group">
+                <label class="input-label">IFSC Code</label>
+                <input id="ifsc" class="input-field" disabled>
+            </div>
+            <div class="input-group">
+                <label class="input-label">Amount</label>
+                <input id="amountBank" class="input-field" placeholder="Enter Amount" type="number">
+            </div>
+            <button id="withdrawBank" class="btn-primary">Withdraw</button>
+        </div>
+
+        <div class="link-text" onclick="location='withdraw_history.html'">View Withdraw History</div>
+    </div>
+</div>
+
+<script type="module">
+import { db } from "./config.js"
+import { doc, getDoc, updateDoc, addDoc, collection, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+const userID = localStorage.getItem("rony_local")
+if(!userID) location = "login.html"
+
+const ref = doc(db,"channel",userID)
+
+const balanceBox = document.getElementById("balanceBox")
+const upiDiv = document.getElementById("upiDiv")
+const bankDiv = document.getElementById("bankDiv")
+
+const upiInput = document.getElementById("upiInput")
+const amountUpi = document.getElementById("amountUpi")
+
+const bankName = document.getElementById("bankName")
+const accNum = document.getElementById("accNum")
+const ifsc = document.getElementById("ifsc")
+const amountBank = document.getElementById("amountBank")
+
+const withdrawUpiBtn = document.getElementById("withdrawUpi")
+const withdrawBankBtn = document.getElementById("withdrawBank")
+
+function checkWithdrawDay(){
+    const today = new Date().getDay()
+    return today === 0 || today === 1
+}
+
+function updateButtonState(){
+    const isAllowed = checkWithdrawDay()
+    withdrawUpiBtn.disabled = !isAllowed
+    withdrawBankBtn.disabled = !isAllowed
+    
+    if(!isAllowed){
+        withdrawUpiBtn.style.background = "#ccc"
+        withdrawUpiBtn.style.cursor = "not-allowed"
+        withdrawBankBtn.style.background = "#ccc"
+        withdrawBankBtn.style.cursor = "not-allowed"
+    } else {
+        withdrawUpiBtn.style.background = "#000"
+        withdrawUpiBtn.style.cursor = "pointer"
+        withdrawBankBtn.style.background = "#000"
+        withdrawBankBtn.style.cursor = "pointer"
+    }
+}
+
+async function loadBalance(){
+    const snap = await getDoc(ref)
+    const data = snap.data() || {}
+    balanceBox.innerHTML = `
+        <div class="balance-label">Available Balance</div>
+        <div class="balance-amount">₹${data.balance || 0}</div>
+    `
+}
+
+async function loadUPI(){
+    const snap = await getDoc(ref)
+    const x = snap.data() || {}
+    upiInput.value = x.upi || ""
+}
+
+async function loadBank(){
+    const snap = await getDoc(ref)
+    const x = snap.data() || {}
+    bankName.value = x.bankName || ""
+    accNum.value = x.accNum || ""
+    ifsc.value = x.ifsc || ""
+}
+
+upiBtn.onclick = () => {
+    upiDiv.style.display = "block"
+    bankDiv.style.display = "none"
+    upiBtn.classList.add("active")
+    bankBtn.classList.remove("active")
+    loadUPI()
+}
+
+bankBtn.onclick = () => {
+    upiDiv.style.display = "none"
+    bankDiv.style.display = "block"
+    upiBtn.classList.remove("active")
+    bankBtn.classList.add("active")
+    loadBank()
+}
+
+async function deductBalance(amount){
+    const snap = await getDoc(ref)
+    const bal = Number(snap.data().balance || 0)
+    const newBal = bal - amount
+    await updateDoc(ref,{ balance: newBal })
+    loadBalance()
+}
+
+withdrawUpiBtn.onclick = async () => {
+    if(!checkWithdrawDay()){ 
+        Swal.fire("Withdrawals are only available on Sunday and Monday")
+        return 
+    }
+
+    const amt = Number(amountUpi.value)
+    const snap = await getDoc(ref)
+    const bal = Number(snap.data().balance || 0)
+
+    if(amt < 300){ Swal.fire("Minimum amount is ₹300"); return }
+    if(amt > bal){ Swal.fire("Insufficient Balance"); return }
+
+    await addDoc(collection(db,"withdraw"),{
+        user_id: userID,
+        mode: "upi",
+        upi: upiInput.value,
+        amount: amt,
+        status: "Pending",
+        timestamp: serverTimestamp()
+    })
+
+    await deductBalance(amt)
+    Swal.fire("Request Sent")
+    amountUpi.value = ""
+}
+
+withdrawBankBtn.onclick = async () => {
+    if(!checkWithdrawDay()){ 
+        Swal.fire("Withdrawals are only available on Sunday and Monday")
+        return 
+    }
+
+    const amt = Number(amountBank.value)
+    const snap = await getDoc(ref)
+    const bal = Number(snap.data().balance || 0)
+
+    if(amt < 300){ Swal.fire("Minimum amount is ₹300"); return }
+    if(amt > bal){ Swal.fire("Insufficient Balance"); return }
+
+    await addDoc(collection(db,"withdraw"),{
+        user_id: userID,
+        mode: "bank",
+        bankName: bankName.value,
+        accNum: accNum.value,
+        ifsc: ifsc.value,
+        amount: amt,
+        status: "Pending",
+        timestamp: serverTimestamp()
+    })
+
+    await deductBalance(amt)
+    Swal.fire("Request Sent")
+    amountBank.value = ""
+}
+
+loadBalance()
+loadUPI()
+updateButtonState()
+</script>
