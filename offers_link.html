@@ -214,8 +214,8 @@ async function loadOffers() {
     linksSnap.forEach(d => {
         const x = d.data()
         const rank = rankMap[x.app_id]
-        if (rank && rank.disabled === true) {
-            disabledOffers.push({ id: d.id, ...x, _disabled: true })
+        if (rank && rank.disabled === false) {
+            disabledOffers.push({ id: d.id, ...x, _disabled: false })
         } else {
             activeOffers.push({ id: d.id, ...x, _disabled: false })
         }
