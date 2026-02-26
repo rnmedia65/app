@@ -13,6 +13,10 @@
     padding: 16px;
     margin-bottom: 14px;
 }
+.offer-card.disabled-card {
+    opacity: 0.55;
+    border-color: #f44336;
+}
 .offer-card-top {
     display: flex;
     align-items: center;
@@ -31,6 +35,18 @@
     font-weight: 600;
     color: #000;
     flex: 1;
+}
+.disabled-badge {
+    display: inline-block;
+    background: #f44336;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 20px;
+    margin-left: 6px;
+    vertical-align: middle;
+    letter-spacing: 0.3px;
 }
 .copy-btn {
     display: flex;
@@ -192,25 +208,32 @@ async function loadOffers() {
     const rankMap = {}
     rankSnap.forEach(d => { rankMap[d.id] = d.data() })
 
-    const offers = []
+    const activeOffers = []
+    const disabledOffers = []
+
     linksSnap.forEach(d => {
         const x = d.data()
         const rank = rankMap[x.app_id]
-        if (rank && rank.disabled === true) return
-        offers.push({ id: d.id, ...x })
+        if (rank && rank.disabled === true) {
+            disabledOffers.push({ id: d.id, ...x, _disabled: true })
+        } else {
+            activeOffers.push({ id: d.id, ...x, _disabled: false })
+        }
     })
+
+    activeOffers.sort((a, b) => {
+        const ra = rankMap[a.app_id] ? Number(rankMap[a.app_id].rank) : 9999
+        const rb = rankMap[b.app_id] ? Number(rankMap[b.app_id].rank) : 9999
+        return ra - rb
+    })
+
+    const offers = [...activeOffers, ...disabledOffers]
 
     if (offers.length === 0) {
         el("loader").style.display = "none"
         el("noOffers").style.display = "block"
         return
     }
-
-    offers.sort((a, b) => {
-        const ra = rankMap[a.app_id] ? Number(rankMap[a.app_id].rank) : 9999
-        const rb = rankMap[b.app_id] ? Number(rankMap[b.app_id].rank) : 9999
-        return ra - rb
-    })
 
     const list = el("offerList")
 
@@ -220,9 +243,12 @@ async function loadOffers() {
         const freshSnap = await getDoc(docRef)
         const freshData = freshSnap.data() || {}
         const savedVideoId = freshData.video_id || ""
+        const isDisabled = offer._disabled
 
         const card = document.createElement("div")
-        card.className = "offer-card"
+        card.className = isDisabled ? "offer-card disabled-card" : "offer-card"
+
+        const disabledBadge = isDisabled ? `<span class="disabled-badge">Disabled</span>` : ""
 
         const videoSection = offer.is_video ? `
             <div class="video-section">
@@ -240,7 +266,7 @@ async function loadOffers() {
         card.innerHTML = `
             <div class="offer-card-top">
                 <img class="offer-app-icon" src="${app.image || ''}" alt="${app.title || ''}">
-                <span class="offer-app-name">${app.title || 'Unknown App'}</span>
+                <span class="offer-app-name">${app.title || 'Unknown App'}${disabledBadge}</span>
                 <button class="copy-btn" data-url="${offer.url}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2"/>
