@@ -21,7 +21,6 @@
     display: flex;
     align-items: center;
     gap: 12px;
-    margin-bottom: 14px;
 }
 .offer-app-icon {
     width: 48px;
@@ -239,16 +238,25 @@ async function loadOffers() {
 
     for (const offer of offers) {
         const app = appsMap[offer.app_id] || {}
-        const docRef = doc(db, "offer_links", offer.id)
-        const freshSnap = await getDoc(docRef)
-        const freshData = freshSnap.data() || {}
-        const savedVideoId = freshData.video_id || ""
         const isDisabled = offer._disabled
 
         const card = document.createElement("div")
         card.className = isDisabled ? "offer-card disabled-card" : "offer-card"
 
-        const disabledBadge = isDisabled ? `<span class="disabled-badge">Disabled</span>` : ""
+        if (isDisabled) {
+            card.innerHTML = `
+                <div class="offer-card-top">
+                    <img class="offer-app-icon" src="${app.image || ''}" alt="${app.title || ''}">
+                    <span class="offer-app-name">${app.title || 'Unknown App'}<span class="disabled-badge">Disabled</span></span>
+                </div>
+            `
+            list.appendChild(card)
+            continue
+        }
+
+        const freshSnap = await getDoc(doc(db, "offer_links", offer.id))
+        const freshData = freshSnap.data() || {}
+        const savedVideoId = freshData.video_id || ""
 
         const videoSection = offer.is_video ? `
             <div class="video-section">
@@ -266,7 +274,7 @@ async function loadOffers() {
         card.innerHTML = `
             <div class="offer-card-top">
                 <img class="offer-app-icon" src="${app.image || ''}" alt="${app.title || ''}">
-                <span class="offer-app-name">${app.title || 'Unknown App'}${disabledBadge}</span>
+                <span class="offer-app-name">${app.title || 'Unknown App'}</span>
                 <button class="copy-btn" data-url="${offer.url}">
                     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <rect x="9" y="9" width="13" height="13" rx="2"/>
