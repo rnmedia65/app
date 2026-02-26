@@ -1,0 +1,317 @@
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Offer Links</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="./config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+
+<style>
+.offer-card {
+    background: #fff;
+    border: 1px solid #e0e0e0;
+    border-radius: 14px;
+    padding: 16px;
+    margin-bottom: 14px;
+}
+.offer-card-top {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+.offer-app-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    object-fit: cover;
+    border: 1px solid #e0e0e0;
+}
+.offer-app-name {
+    font-size: 16px;
+    font-weight: 600;
+    color: #000;
+    flex: 1;
+}
+.copy-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 14px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: auto;
+}
+.copy-btn:active {
+    background: #333;
+}
+.copy-btn svg {
+    flex-shrink: 0;
+}
+.video-section {
+    margin-top: 12px;
+    border-top: 1px solid #f0f0f0;
+    padding-top: 12px;
+}
+.video-label {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 8px;
+    font-weight: 500;
+}
+.video-input-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 10px;
+}
+.video-url-input {
+    flex: 1;
+    padding: 10px 12px;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 14px;
+    background: #fff;
+}
+.video-url-input:focus {
+    outline: none;
+    border-color: #000;
+}
+.save-video-btn {
+    padding: 10px 14px;
+    background: #000;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    white-space: nowrap;
+    width: auto;
+}
+.save-video-btn:active {
+    background: #333;
+}
+.video-frame-wrap {
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid #e0e0e0;
+}
+.video-frame-wrap iframe {
+    width: 100%;
+    height: 200px;
+    display: block;
+    border: none;
+}
+.no-offers {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+    font-size: 15px;
+}
+.loader {
+    display: none;
+    width: 40px;
+    height: 40px;
+    border: 4px solid #e0e0e0;
+    border-top-color: #000;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin: 40px auto;
+}
+@keyframes spin { 100% { transform: rotate(360deg); } }
+</style>
+
+<div class="container">
+    <div class="header">
+        <button class="back-btn" onclick="location='index.html'">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M15 18L9 12L15 6"/>
+            </svg>
+        </button>
+        <span class="header-title">Offer Links</span>
+        <button class="back-btn" onclick="location='offers_rank.html'" title="Offer Rank">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="8" y1="6" x2="21" y2="6"/>
+                <line x1="8" y1="12" x2="21" y2="12"/>
+                <line x1="8" y1="18" x2="21" y2="18"/>
+                <circle cx="3" cy="6" r="1" fill="#000"/>
+                <circle cx="3" cy="12" r="1" fill="#000"/>
+                <circle cx="3" cy="18" r="1" fill="#000"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="content">
+        <div id="loader" class="loader"></div>
+        <div id="offerList"></div>
+        <p id="noOffers" class="no-offers" style="display:none;">No offer links available</p>
+    </div>
+</div>
+
+<script type="module">
+import { db } from "./config.js"
+import { collection, getDocs, doc, getDoc, query, where, updateDoc } from "https://www.gstatic.com/firebasejs/10.12.3/firebase-firestore.js"
+
+const userID = localStorage.getItem("rony_local")
+if (!userID) location = "login.html"
+
+function el(id) { return document.getElementById(id) }
+
+function extractYouTubeId(url) {
+    const patterns = [
+        /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/,
+        /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/
+    ]
+    for (const p of patterns) {
+        const m = url.match(p)
+        if (m) return m[1]
+    }
+    return null
+}
+
+async function loadOffers() {
+    el("loader").style.display = "block"
+    el("offerList").innerHTML = ""
+    el("noOffers").style.display = "none"
+
+    const appsSnap = await getDocs(collection(db, "apps"))
+    const appsMap = {}
+    appsSnap.forEach(d => { appsMap[d.id] = d.data() })
+
+    const linksSnap = await getDocs(
+        query(collection(db, "offer_links"), where("channel_id", "==", userID))
+    )
+
+    const rankSnap = await getDocs(collection(db, "offer_rank"))
+    const rankMap = {}
+    rankSnap.forEach(d => { rankMap[d.id] = d.data() })
+
+    const offers = []
+    linksSnap.forEach(d => {
+        const x = d.data()
+        const rank = rankMap[x.app_id]
+        if (rank && rank.disabled === true) return
+        offers.push({ id: d.id, ...x })
+    })
+
+    if (offers.length === 0) {
+        el("loader").style.display = "none"
+        el("noOffers").style.display = "block"
+        return
+    }
+
+    offers.sort((a, b) => {
+        const ra = rankMap[a.app_id] ? Number(rankMap[a.app_id].rank) : 9999
+        const rb = rankMap[b.app_id] ? Number(rankMap[b.app_id].rank) : 9999
+        return ra - rb
+    })
+
+    const list = el("offerList")
+
+    for (const offer of offers) {
+        const app = appsMap[offer.app_id] || {}
+        const docRef = doc(db, "offer_links", offer.id)
+        const freshSnap = await getDoc(docRef)
+        const freshData = freshSnap.data() || {}
+        const savedVideoId = freshData.video_id || ""
+
+        const card = document.createElement("div")
+        card.className = "offer-card"
+
+        const videoSection = offer.is_video ? `
+            <div class="video-section">
+                <div class="video-label">YouTube Video URL</div>
+                <div class="video-input-row">
+                    <input class="video-url-input" type="text" placeholder="Paste YouTube URL..." data-offer-id="${offer.id}" value="">
+                    <button class="save-video-btn" data-offer-id="${offer.id}">Save</button>
+                </div>
+                <div class="video-frame-wrap" id="frame_${offer.id}" style="display:none;">
+                    <iframe id="iframe_${offer.id}" src="" allowfullscreen></iframe>
+                </div>
+            </div>
+        ` : ""
+
+        card.innerHTML = `
+            <div class="offer-card-top">
+                <img class="offer-app-icon" src="${app.image || ''}" alt="${app.title || ''}">
+                <span class="offer-app-name">${app.title || 'Unknown App'}</span>
+                <button class="copy-btn" data-url="${offer.url}">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2"/>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+                    </svg>
+                    Copy
+                </button>
+            </div>
+            ${videoSection}
+        `
+
+        list.appendChild(card)
+
+        if (offer.is_video && savedVideoId) {
+            const inputEl = card.querySelector(`.video-url-input[data-offer-id="${offer.id}"]`)
+            const frameWrap = el(`frame_${offer.id}`)
+            const iframe = el(`iframe_${offer.id}`)
+            if (inputEl) inputEl.value = `https://youtu.be/${savedVideoId}`
+            if (frameWrap && iframe) {
+                iframe.src = `https://www.youtube.com/embed/${savedVideoId}`
+                frameWrap.style.display = "block"
+            }
+        }
+    }
+
+    list.querySelectorAll(".copy-btn").forEach(btn => {
+        btn.onclick = () => {
+            const url = btn.dataset.url
+            navigator.clipboard.writeText(url).then(() => {
+                Swal.fire({ icon: "success", title: "Copied!", text: url, timer: 1500, showConfirmButton: false })
+            }).catch(() => {
+                Swal.fire({ title: "URL", text: url })
+            })
+        }
+    })
+
+    list.querySelectorAll(".video-url-input").forEach(input => {
+        input.addEventListener("input", () => {
+            const offerId = input.dataset.offerId
+            const vid = extractYouTubeId(input.value.trim())
+            const frameWrap = el(`frame_${offerId}`)
+            const iframe = el(`iframe_${offerId}`)
+            if (vid && frameWrap && iframe) {
+                iframe.src = `https://www.youtube.com/embed/${vid}`
+                frameWrap.style.display = "block"
+            } else if (frameWrap) {
+                frameWrap.style.display = "none"
+                if (iframe) iframe.src = ""
+            }
+        })
+    })
+
+    list.querySelectorAll(".save-video-btn").forEach(btn => {
+        btn.onclick = async () => {
+            const offerId = btn.dataset.offerId
+            const input = list.querySelector(`.video-url-input[data-offer-id="${offerId}"]`)
+            const url = input ? input.value.trim() : ""
+            const vid = extractYouTubeId(url)
+            if (!vid) {
+                Swal.fire({ icon: "error", title: "Invalid URL", text: "Please enter a valid YouTube URL" })
+                return
+            }
+            btn.textContent = "..."
+            await updateDoc(doc(db, "offer_links", offerId), { video_id: vid })
+            btn.textContent = "Save"
+            Swal.fire({ icon: "success", title: "Saved", timer: 1200, showConfirmButton: false })
+        }
+    })
+
+    el("loader").style.display = "none"
+}
+
+loadOffers()
+</script>
